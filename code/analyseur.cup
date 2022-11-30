@@ -1,0 +1,1160 @@
+// Specification JCup
+import java_cup.runtime.*;
+import java.util.*;
+import java.io.*;
+ 
+parser code {:
+	public static void main(String args[]) throws Exception {
+		//new parser(new Yylex(System.in)).parse();
+		new parser(new Yylex(new InputStreamReader(System.in))).parse();
+	}
+
+	public void syntax_error(Symbol cur_token) { 
+		// n'interrompt pas la compil... 
+		// on est par defaut dans s'etat error qui permet ensuite la recup
+		// par défaut : report_error("syntax error", null);
+		report_error("Syntaxe incorrecte <"+tokenToString(cur_token)+">", null);        
+	}
+
+	public void report_error(String message, Object info) {   
+		// n'interrompt pas la compil
+		if (info == null) System.err.println("Mon erreur <"+ ptext()+ "> ligne "+ pline() + ", colonne " + pcolumn() + " : " + message);
+		else System.err.println("Mon erreur <"+ptext()+ "> ligne "+ pline() + ", colonne " + pcolumn() + " : " +message+" : "+info);
+		System.err.println("-> mais on continue s'analyse... ");
+	}
+
+	public void unrecovered_syntax_error(Symbol cur_token) {
+    	// par defaut : report_fatal_error("Couldn't repair and continue parse", null);
+		// on n'a pas reussi a faire de la recup
+		report_fatal_error("Recuperation impossible <"+tokenToString(cur_token)+">", null);   // interrompt la compil     
+	}
+
+	public void report_fatal_error(String message, Object info) {  
+		// qd cette fct est appelee, message vaut par defaut "Couldn't repair and continue parse"
+		String m = "Mon erreur fatale <"+ ptext()+ "> ligne " + pline() + ", colonne " + pcolumn() + " : " + message;
+		if (info == null) System.err.println(m);
+		else System.err.println(m+" : "+info);
+		System.err.println("-> arr�t de s'analyse...");
+		done_parsing(); // interrompt la compil
+  	}
+
+	public int pline(){
+		return ((Yylex)getScanner()).getYyLine();
+	}
+	public int pcolumn(){
+		return ((Yylex)getScanner()).getYyColumn();
+	}
+	public String ptext(){
+		return ((Yylex)getScanner()).getYyText();
+	}
+
+
+public String tokenToString (Symbol token) {
+// qqs exemples pour voir...
+	/*
+     switch (token.sym) {
+	case sym.SI : return "SI"; 
+	case sym.CHAINE_CARACTERE : return "CHAINE "+token.value;  
+	case sym.ENTIER : return "ENTIER "+token.value;  
+	//  ... A compl�ter !!
+	default : return "Token impr�vu ou error";
+	}
+	*/
+	return "non";
+}
+
+:}
+
+
+
+action code {:
+String code_CMaison = "";
+String code_Habitat = "";
+//liste identifiants appareils & interfaces
+ArrayList<String> identifiants = new ArrayList<String>();
+ArrayList<String> scenario_list = new ArrayList<String>();
+//liste de dates declar_commandes
+ArrayList<String> dates = new ArrayList<String>();
+ArrayList<String> liste_ensemble = new ArrayList<String>();
+HashMap<Integer,String> id_ensemble =  new HashMap<Integer,String>();
+HashMap<Integer,String> id_tous = new HashMap<Integer,String>();
+
+// Aide pour faire L'analyse
+String scenario_str_CM = "";
+String scenario_str_HS = "";
+String message_sc_CM = "";
+String message_sc_HS = "";
+String str_all_CMaison = "";
+String c_pt_CM = "";
+String c_pt_HS = "";
+String cond_si_CM = "";
+String cond_si_HS = "";
+String str_all_HabitatSpec = "";
+int nb_pour = 0;
+int nb_ensb = 0;
+int numProg = 1;
+int numDate = 1;
+int num_scenario = 0;
+boolean estEnsemble = false;
+boolean premFor = false;
+
+// Resumer
+String str_resume = "";
+int nb_app = 0;
+int nb_interface = 0;
+int nb_scenarii = 0;
+ArrayList<String> association = new ArrayList<String>();
+ArrayList<String> scenarii_prog = new ArrayList<String>();
+
+void code_file_CMaison(String data){
+	try {
+      FileWriter output = new FileWriter("../result/CMaisonUser.java");
+      output.write(data);
+      output.close();
+	}
+    catch (Exception e) {
+      e.getStackTrace();
+    }
+}
+
+void code_file_Habitat(String data){
+	try {
+      FileWriter output = new FileWriter("../result/HabitatSpecific.java");
+      output.write(data);
+      output.close();
+	}
+    catch (Exception e) {
+      e.getStackTrace();
+    }
+}
+
+void resume_prog(String data){
+	try {
+      FileWriter output = new FileWriter("../result/resume.txt");
+      output.write(data);
+      output.close();
+	}
+    catch (Exception e) {
+      e.getStackTrace();
+    }
+}
+
+:}
+
+
+terminal PROGRAMME_DOMUS_OUVERT,PROGRAMME_DOMUS_FERMER;
+terminal DECLARATION_APPAREILS_OUVERT,DECLARATION_APPAREILS_FERMER;
+terminal DECLARATION_SCENARII_OUVERT,DECLARATION_SCENARII_FERMER;
+terminal DECLARATION_COMMANDES_OUVERT,DECLARATION_COMMANDES_FERMER;
+terminal DECLARATION_INTERFACES_OUVERT, DECLARATION_INTERFACES_FERMER;
+terminal SCENARIO_DEBUT_OUVERT,SCENARIO_FIN_OUVERT,SCENARIO_FERMER;
+terminal DEFINIR;
+terminal EXECUTER_SCENARIO;
+terminal ASSOCIER;
+terminal PROGRAMMER;
+terminal MESSAGE;
+terminal POURTOUT,FAIRE,FAIT;
+terminal SI,ALORS,SINON,FSI;
+terminal ETAT;
+terminal OUVRIR,FERMER;
+terminal ETEINDRE,ETEINT;
+terminal DEMI;
+terminal ECO;
+terminal ALLUME;
+terminal ALLUMER;
+terminal TAMISER;
+terminal ALLUMER_PARTIEL;
+terminal ALLUMER_ECO;
+terminal OUVRIR_PARTIEL;
+terminal FERMER_PARTIEL;
+terminal OUVERT,FERME;
+terminal ECLAIRAGE;
+terminal VOLET;
+terminal CHAUFFAGE;
+terminal ALARME;
+terminal FENETRE;
+terminal AUTRE_APPAREIL;
+terminal INTERRUPTEUR;
+terminal MOBILE;
+terminal TELEPHONE;
+terminal TELECOMMANDE;
+terminal TABLETTE;
+terminal TV;
+terminal HIFI;
+terminal CAFETIERE;
+terminal VIDEO_PROJ;
+terminal LAVE_VAISSELLE;
+terminal LAVE_LINGE;
+terminal SECHE_LINGE;
+terminal ORDINATEUR;
+terminal PORTAIL;
+terminal EGUALITE;
+terminal NON_EGUALITE;
+terminal AFFECTATION;
+terminal POINT;
+terminal POINT_VIRGULE;
+terminal VIRGULE;
+terminal DOUBLE_POINT;
+terminal UNDERSCORE;
+terminal String CHAINE_CARACTERE;
+terminal ACCOLADE_OUVERT,ACCOLADE_FERMER;
+terminal PARENTHESE_OUVERT,PARENTHESE_FERMER;
+terminal String IDENT;
+terminal Integer ENTIER;
+
+non terminal domus,
+domus_body, declar_appareils, declar_interfaces, declar_scenarii, declar_commandes,
+liste_ident,liste_scenario, scenario, fonction_scenario, pourtout_scenario, 
+si_scenario,si_interieur,condition_pourtout, condition_si, type_appareil,
+type_autre_appareil, liste_action,liste_action_pourtout, executer_scenario_sc,type_interface,
+message_scenario, elem_date, date, liste_date,etat_appareil,
+liste_declar_appareils,liste_declar_interfaces, liste_inside_scenario, liste_declar_commandes,
+liste_messages, liste_inside_action, sinon_si_scenario
+;
+
+// APPLICATION DOMUS
+domus ::=  
+{:
+	code_CMaison += "public class CMaisonUser extends CMaison {\n\n";
+	code_CMaison += "\tpublic CMaisonUser(){\n";
+	code_CMaison += "\tsuper();\n";
+	code_Habitat += "import java.util.ArrayList;\n";
+	code_Habitat += "public class HabitatSpecific extends Habitat {\n";
+	code_Habitat += "\tpublic HabitatSpecific(ArrayList<CAppareil> lapp, ArrayList<CEnsAppareil> lens, ArrayList<CScenario> lscen, ArrayList<CInterface> lint, ArrayList<CProgrammation> lprog)\n";
+    code_Habitat += "\t\t{\n\t\t\tsuper(lapp,lens,lscen,lint,lprog);\n\t\t}\n"; 
+	code_Habitat += "\tpublic void execScenarioNum(int num) \n\t\t{\n\t\t System.out.println( \"Execution du scenario \"+this.l_scenarios.get(num).getNomScenario()+\"... \");\n";
+	code_Habitat += "\t\t switch(num) {\n";
+:}
+PROGRAMME_DOMUS_OUVERT domus_body:db PROGRAMME_DOMUS_FERMER
+{:
+
+	code_CMaison += "\t\tmonHabitat = new HabitatSpecific(ma_liste_appareils,\n"+
+		"\t\t\tma_liste_ens_appareils, ma_liste_scenarios,\n"+
+			"\t\t\t\tma_liste_interfaces, ma_liste_programmations);\n\t\t}\t\n}";
+	code_Habitat += "\t\t\ndefault:\n\t\t}\n\t}\n}";
+	code_file_CMaison(code_CMaison);
+	code_file_Habitat(code_Habitat);
+	str_resume += "=================================\n";
+	str_resume += "= RESUME DU PROGRAMME DOMOTIQUE =\n";
+	str_resume += "=================================\n\n";
+	str_resume += "> Le nombre d'appareils déclarés : "+nb_app+"\n\n";
+	str_resume += "> Le nombre d'interface déclarées : "+nb_interface+"\n\n";
+	str_resume += "> Le nombre de scénarii déclarés : "+nb_scenarii+"\n\n";
+	int i = 1;
+	for (String s : scenario_list){
+		str_resume += "\t- Scénario "+(i++)+" : "+s+"\n";
+	}
+	str_resume += "\n";
+	str_resume += "> Les associations interfaces/scenarii :\n";
+	for (String s : association){
+		str_resume += "\t- "+s+"\n";
+	}
+	str_resume += "\n";
+	str_resume += "> Le nom des scénarii programmés :\n";
+	for (String s : scenarii_prog){
+		str_resume += "\t- "+s+"\n";
+	}
+	str_resume += "\n\n";
+	str_resume += "> Joshua RAMOS GIQUEL\n> Alan VADELEAU";
+	resume_prog(str_resume);
+:}
+;
+
+
+
+// Body DOMUS
+domus_body ::= 
+  DECLARATION_APPAREILS_OUVERT liste_declar_appareils DECLARATION_APPAREILS_FERMER
+	{:
+		code_CMaison += "\n";
+	:}
+  DECLARATION_INTERFACES_OUVERT liste_declar_interfaces DECLARATION_INTERFACES_FERMER
+  	{: 
+	  	code_CMaison += "\n";
+	:}
+  declar_scenarii 
+  	{:
+	  	code_CMaison += "\n";
+	:}
+  DECLARATION_COMMANDES_OUVERT liste_declar_commandes DECLARATION_COMMANDES_FERMER
+  	{:
+	  	code_CMaison += "\n";
+	:}
+;
+// DECLARATION APPAREILS
+liste_declar_appareils ::= declar_appareils liste_declar_appareils | declar_appareils;
+declar_appareils ::= 
+	  type_appareil:type liste_ident POINT 
+	  {:
+		String sType = (String)type;
+		switch(sType){
+			case "ECLAIRAGE":
+				for (String s : identifiants){
+					code_CMaison+= "\t\tCEclairage "+s+" = new CEclairage(\""+s+"\",TypeAppareil.ECLAIRAGE);\n";
+					code_CMaison += "\t\tma_liste_appareils.add("+s+");\n";
+				}
+				identifiants.clear();
+			break;
+
+			case "ALARME":
+				for (String s : identifiants){
+					code_CMaison+= "\t\tCAlarme "+s+" = new CAlarme(\""+s+"\",TypeAppareil.ALARME);\n";
+					code_CMaison += "\t\tma_liste_appareils.add("+s+");\n";
+				}
+				identifiants.clear();
+			break;
+
+			case "CHAUFFAGE":
+				for (String s : identifiants){
+					code_CMaison+= "\t\tCChauffage "+s+" = new CChauffage(\""+s+"\",TypeAppareil.CHAUFFAGE);\n";
+					code_CMaison += "\t\tma_liste_appareils.add("+s+");\n";
+				}
+				identifiants.clear();	
+			break;
+
+			case "FENETRE":
+				for (String s : identifiants){
+					code_CMaison+= "\t\tCVoletFenetre "+s+" = new CVoletFenetre(\""+s+"\",TypeAppareil.FENETRE);\n";
+					code_CMaison += "\t\tma_liste_appareils.add("+s+");\n";
+				}
+				identifiants.clear();
+			break;
+
+			case "VOLET":
+				for (String s : identifiants){
+					code_CMaison+= "\t\tCVoletFenetre "+s+" = new CVoletFenetre(\""+s+"\",TypeAppareil.VOLET);\n";
+					code_CMaison += "\t\tma_liste_appareils.add("+s+");\n";
+				}
+				identifiants.clear();
+			break;	
+		}
+		nb_app ++;
+	  :}
+	| AUTRE_APPAREIL PARENTHESE_OUVERT type_autre_appareil:type PARENTHESE_FERMER liste_ident POINT 
+	  {:
+		String sType = (String)type;
+
+		switch(sType){
+
+			case "AUTRE_APPAREIL_CAFE":
+				for (String s : identifiants){
+					code_CMaison+= "\t\tCAutreAppareil "+s+" = new CAutreAppareil(\""+s+"\",TypeAppareil.AUTRE_APPAREIL_CAFE);\n";
+					code_CMaison += "\t\tma_liste_appareils.add("+s+");\n";
+				}
+				identifiants.clear();
+
+			break;
+
+			case "AUTRE_APPAREIL_TV":
+				for (String s : identifiants){
+					code_CMaison+= "\t\tCAutreAppareil "+s+" = new CAutreAppareil(\""+s+"\",TypeAppareil.AUTRE_APPAREIL_TV);\n";
+					code_CMaison += "\t\tma_liste_appareils.add("+s+");\n";
+				}
+				identifiants.clear();
+
+			break;
+
+			case "AUTRE_APPAREIL_HIFI":
+				for (String s : identifiants){
+					code_CMaison+= "\t\tCAutreAppareil "+s+" = new CAutreAppareil(\""+s+"\",TypeAppareil.AUTRE_APPAREIL_HIFI);\n";
+					code_CMaison += "\t\tma_liste_appareils.add("+s+");\n";
+				}
+				identifiants.clear();
+			break;
+
+			case "AUTRE_APPAREIL_VP":
+				for (String s : identifiants){
+					code_CMaison+= "\t\tCAutreAppareil "+s+" = new CAutreAppareil(\""+s+"\",TypeAppareil.AUTRE_APPAREIL_VP);\n";
+					code_CMaison += "\t\tma_liste_appareils.add("+s+");\n";
+				}
+				identifiants.clear();
+			break;
+
+			case "AUTRE_APPAREIL_LL":
+				for (String s : identifiants){
+					code_CMaison+= "\t\tCAutreAppareil "+s+" = new CAutreAppareil(\""+s+"\",TypeAppareil.AUTRE_APPAREIL_LL);\n";
+					code_CMaison += "\t\tma_liste_appareils.add("+s+");\n";
+				}
+				identifiants.clear();
+			break;
+
+			case "AUTRE_APPAREIL_LV":
+				for (String s : identifiants){
+					code_CMaison+= "\t\tCAutreAppareil "+s+" = new CAutreAppareil(\""+s+"\",TypeAppareil.AUTRE_APPAREIL_LV);\n";
+					code_CMaison += "\t\tma_liste_appareils.add("+s+");\n";
+				}
+				identifiants.clear();
+			break;
+
+			case "AUTRE_APPAREIL_SL":
+				for (String s : identifiants){
+					code_CMaison+= "\t\tCAutreAppareil "+s+" = new CAutreAppareil(\""+s+"\",TypeAppareil.AUTRE_APPAREIL_SL);\n";
+					code_CMaison += "\t\tma_liste_appareils.add("+s+");\n";
+				}
+				identifiants.clear();
+			break;
+
+			case "AUTRE_APPAREIL_PORTAIL":
+				for (String s : identifiants){
+					code_CMaison+= "\t\tCAutreAppareil "+s+" = new CAutreAppareil(\""+s+"\",TypeAppareil.AUTRE_APPAREIL_PORTAIL);\n";
+					code_CMaison += "\t\tma_liste_appareils.add("+s+");\n";
+				}
+				identifiants.clear();
+			break;
+		}
+		
+		nb_app ++;
+	  :}
+	| DEFINIR IDENT:id AFFECTATION ACCOLADE_OUVERT liste_ident ACCOLADE_FERMER POINT 
+	  {:
+	  	liste_ensemble.add(id);
+		code_CMaison+= "\t\tCEnsAppareil "+id+" = new CEnsAppareil(\""+id+"\");\n";
+		for(String s : identifiants){
+			code_CMaison+= "\t\t"+id+".addAppareil("+s+");\n";
+		}
+		code_CMaison+= "\t\tma_liste_ens_appareils.add("+id+");\n";
+		identifiants.clear();
+	  :}
+	| error {: System.out.println("Erreur syntaxique : Identifiant non valide (SI) "); :}  
+	
+;
+
+// DECLARATION INTERFACES
+liste_declar_interfaces ::=  declar_interfaces liste_declar_interfaces | declar_interfaces;
+declar_interfaces ::= 
+		type_interface:type liste_ident POINT
+		{:
+		String sType = (String)type;
+			switch(sType){
+				
+				case "INTERRUPTEUR": 
+					for(String s : identifiants){
+						code_CMaison+= "\t\tCInterface "+s+" = new CInterface(\""+s+"\",TypeInterface.INTERRUPTEUR);\n";
+						code_CMaison += "\t\tma_liste_interfaces.add("+s+");\n";
+					}
+					identifiants.clear();
+					
+				break;
+
+				case "MOBILE" :
+					for(String s : identifiants){
+						code_CMaison+= "\t\tCInterface "+s+" = new CInterface(\""+s+"\",TypeInterface.MOBILE);\n";
+						code_CMaison += "\t\tma_liste_interfaces.add("+s+");\n";
+					}
+					identifiants.clear();
+				break;
+				
+				case "TELEPHONE" :
+					for(String s : identifiants){
+						code_CMaison+= "\t\tCInterface "+s+" = new CInterface(\""+s+"\",TypeInterface.TELEPHONE);\n";
+						code_CMaison += "\t\tma_liste_interfaces.add("+s+");\n";
+					}
+					identifiants.clear(); 
+				break;
+
+				case "TELECOMMANDE" : 
+					for(String s : identifiants){
+						code_CMaison+= "\t\tCInterface "+s+" = new CInterface(\""+s+"\",TypeInterface.TELECOMMANDE);\n";
+						code_CMaison += "\t\tma_liste_interfaces.add("+s+");\n";
+					}
+					identifiants.clear();
+				break;
+
+				case "TABLETTE" : 
+					for(String s : identifiants){
+						code_CMaison+= "\t\tCInterface "+s+" = new CInterface(\""+s+"\",TypeInterface.TABLETTE);\n";
+						code_CMaison += "\t\tma_liste_interfaces.add("+s+");\n";
+					}
+					identifiants.clear();
+				break;
+
+				case "ORDINATEUR" : 
+					for(String s : identifiants){
+						code_CMaison+= "\t\tCInterface "+s+" = new CInterface(\""+s+"\",TypeInterface.ORDINATEUR);\n";
+						code_CMaison += "\t\tma_liste_interfaces.add("+s+");\n";
+					}
+					identifiants.clear();
+				break;
+			}
+			nb_interface++;
+		:}
+		| error {: System.out.println("Erreur syntaxique : Identifiant non valide (MESSAGE) "); :}  
+;
+
+//SCENARII
+declar_scenarii ::= 
+	DECLARATION_SCENARII_OUVERT 
+	liste_scenario 
+	DECLARATION_SCENARII_FERMER
+;
+// LES SCENARIOS
+liste_scenario ::= 
+	  SCENARIO_DEBUT_OUVERT IDENT:id 
+	  {:
+	  	code_CMaison += "\t\tString "+id+"_contenu = ";
+	  :}
+	  SCENARIO_FERMER liste_inside_scenario
+	  	 {:
+		   	code_Habitat += "\t\t\tcase "+(num_scenario++)+":\n";
+		   	code_Habitat += "\t"+scenario_str_HS + "\t\t break;\n\n";
+			scenario_str_HS = "";
+			//str_all_HabitatSpec
+		    String str = scenario_str_CM;
+			str = str.substring(0, str.length() - 7);
+			str += "\"\n";
+			str = str.substring(1, str.length());
+			String str_final = "\"\\n "+ str;
+			code_CMaison += str_final+"\t\t;\n";
+			code_CMaison += "\t\tCScenario "+id+" = new CScenario(\""+id+"\","+id+"_contenu);\n";
+			code_CMaison += "\t\tma_liste_scenarios.add("+id+");\n\n";
+			//System.out.println("Ajout d'une scenario : "+id);
+			scenario_str_CM = "";
+			scenario_list.add(id);
+			nb_scenarii++;
+
+			//Varaiable sur l'indention des for
+			premFor = false;
+			
+	  :}
+	SCENARIO_FIN_OUVERT IDENT SCENARIO_FERMER liste_scenario
+	| 
+	| error {: System.out.println("Erreur syntaxique : Ne pas nommer sa variable SINON");:}
+;
+// UN SCENARIO
+liste_inside_scenario ::= scenario
+	{:
+		nb_pour = 0;
+		nb_ensb = 0;
+	:} 
+liste_inside_scenario | scenario:sc 
+	{:
+		nb_pour = 0;
+		nb_ensb = 0;
+	:} 
+;
+
+scenario ::= 
+	  IDENT:id POINT fonction_scenario:fsc POINT_VIRGULE  
+	  {: 
+	 	scenario_str_HS += "\t\t\tfor(CAppareil appareil : this.l_appareils)\n" +
+		"\t\t\t\tif (appareil.getNomAppareil().equals(\""+id+"\")) appareil.appliquer(TypeActionAppareil."+fsc+");\n" ;
+
+
+		if(!premFor){
+			premFor = true;
+			scenario_str_CM += "\"for(CAppareil appareil : this.l_appareils)\\n\"+\n" +
+			"\t\t\"if (appareil.getNomAppareil().equals(\\\""+id+"\\\")) appareil.appliquer(TypeActionAppareil."+fsc+");  \\n\"+\n";
+		}
+		else{
+			scenario_str_CM += "\t\"for(CAppareil appareil : this.l_appareils)\\n\"+\n" +
+			"\t\t\t\"if (appareil.getNomAppareil().equals(\\\""+id+"\\\")) appareil.appliquer(TypeActionAppareil."+fsc+");  \\n\"+\n";
+		}
+	  :}
+	| pourtout_scenario
+	{:
+		scenario_str_HS += str_all_HabitatSpec;
+		str_all_CMaison = str_all_CMaison.substring(2, str_all_CMaison.length());
+		scenario_str_CM += str_all_CMaison;
+		str_all_CMaison = "";
+		str_all_HabitatSpec = "";
+	:}
+	| si_scenario
+	{:
+		scenario_str_HS += str_all_HabitatSpec;
+		str_all_CMaison = str_all_CMaison.substring(2, str_all_CMaison.length());
+		scenario_str_CM += str_all_CMaison;
+		str_all_CMaison = "";
+		str_all_HabitatSpec = "";
+	:}
+	| executer_scenario_sc:nomScenario POINT_VIRGULE 
+	  {:
+	  		
+	  		int num = 0;
+	  		for (String s : scenario_list){
+				  if (s.equals(nomScenario))break;
+				  num++;
+			}
+			scenario_str_HS += "\t\t\tthis.execScenarioNum("+num+");\n";
+			scenario_str_CM += "\"this.execScenarioNum("+num+");\\n\"+\n";
+	  :}
+	| MESSAGE PARENTHESE_OUVERT liste_messages PARENTHESE_FERMER POINT_VIRGULE 
+	  {:
+	  		scenario_str_HS += "\t\t\tSystem.out.println("+message_sc_HS+");\n";
+			scenario_str_CM += "\"System.out.println("+message_sc_CM+");\\n\"+\n";
+			message_sc_CM = "";
+			message_sc_HS = "";
+	  :}
+	
+; 
+
+// DECLARE COMMANDES
+liste_declar_commandes ::= declar_commandes POINT liste_declar_commandes | declar_commandes POINT;
+declar_commandes ::= 
+	  ASSOCIER IDENT:id1 AFFECTATION IDENT:id2 
+	  {:
+		code_CMaison+= "\t\t"+id1+".addScenarioAssocie(\""+id2+"\");\n";
+	  	association.add(id1+" associé à : "+id2);
+	  :} 
+
+	| ASSOCIER IDENT:id AFFECTATION ACCOLADE_OUVERT liste_ident ACCOLADE_FERMER  
+	{:
+		for(String s : identifiants){
+			code_CMaison+= "\t\t"+id+".addScenarioAssocie(\""+s+"\");\n";
+			association.add(id+" associé à : "+s);					
+		}
+		identifiants.clear();	
+	:}
+
+	| PROGRAMMER IDENT:id AFFECTATION PARENTHESE_OUVERT date:d PARENTHESE_FERMER 
+	{:
+		code_CMaison+= "\t\tCProgrammation p"+numProg+" = new CProgrammation(\""+id+"\");\n";
+		code_CMaison+= "\t\tp"+numProg+".addDate("+d+");\n";
+		code_CMaison+="\t\tma_liste_programmations.add(p"+numProg+");\n";
+		numProg++;
+		scenarii_prog.add(id+ " est programmé");
+		dates.clear();
+	:}
+	
+	| PROGRAMMER IDENT:id AFFECTATION ACCOLADE_OUVERT liste_date ACCOLADE_FERMER 
+	{:
+		code_CMaison+= "\t\tCProgrammation p"+numProg+" = new CProgrammation(\""+id+"\");\n";
+		for(String s :dates){
+			code_CMaison+= "\t\tp"+numProg+".addDate("+s+");\n";
+		}
+		code_CMaison+="\t\tma_liste_programmations.add(p"+numProg+");\n";
+		numProg++;
+		scenarii_prog.add(id+ " est programmé");
+		dates.clear();
+	
+	:}
+;
+// DATE
+liste_date ::= 
+	PARENTHESE_OUVERT date:d PARENTHESE_FERMER VIRGULE	
+	{:
+		dates.add((String)d);  
+	:} 
+	liste_date
+	| PARENTHESE_OUVERT date:d PARENTHESE_FERMER
+	{:
+		dates.add((String)d);
+	:}
+;
+
+date ::= elem_date:e1 VIRGULE elem_date:e2 VIRGULE elem_date:e3 VIRGULE elem_date:e4 VIRGULE ENTIER:e5
+	{:
+		code_CMaison+= "\t\tCDate p"+numProg+"d"+numDate+" = new CDate("+e1+","+e2+","+e3+","+e4+","+e5+");\n";
+		RESULT = "p"+numProg+"d"+numDate;
+		numDate++;
+
+	:};
+
+elem_date ::= ENTIER:ent
+{:
+	RESULT = ent;
+:}
+| UNDERSCORE
+{:
+	RESULT = -1;
+:};
+
+// INIT
+type_appareil ::= 
+	  ECLAIRAGE 		{:RESULT = "ECLAIRAGE";:}
+	| ALARME 			{:RESULT = "ALARME";:}
+	| CHAUFFAGE 		{:RESULT = "CHAUFFAGE";:}
+	| FENETRE 			{:RESULT = "FENETRE";:}
+	| VOLET 			{:RESULT = "VOLET";:}
+;
+
+type_autre_appareil ::=
+	  CAFETIERE 		{:RESULT = "AUTRE_APPAREIL_CAFE";:}
+	| TV				{:RESULT = "AUTRE_APPAREIL_TV";:}
+	| HIFI				{:RESULT = "AUTRE_APPAREIL_HIFI";:}
+	| VIDEO_PROJ		{:RESULT = "AUTRE_APPAREIL_VP";:}
+	| LAVE_LINGE		{:RESULT = "AUTRE_APPAREIL_LL";:}
+	| LAVE_VAISSELLE	{:RESULT = "AUTRE_APPAREIL_LV";:}
+	| SECHE_LINGE		{:RESULT = "AUTRE_APPAREIL_SL";:}
+	| PORTAIL			{:RESULT = "AUTRE_APPAREIL_PORTAIL";:}
+;
+type_interface ::= 
+	  INTERRUPTEUR		{:RESULT = "INTERRUPTEUR";:}
+	| MOBILE			{:RESULT = "MOBILE";:}
+	| TELECOMMANDE		{:RESULT = "TELECOMMANDE";:}
+	| TELEPHONE			{:RESULT = "TELEPHONE";:}
+	| TABLETTE			{:RESULT = "TABLETTE";:}
+	| ORDINATEUR		{:RESULT = "ORDINATEUR";:}
+;
+
+etat_appareil ::= 
+	  ALLUME			{:RESULT = "ALLUME";:}
+	| ETEINT			{:RESULT = "ETEINT";:}
+	| DEMI				{:RESULT = "DEMI";:}
+	| ECO				{:RESULT = "ECO";:}
+	| OUVERT			{:RESULT = "OUVERT";:}
+	| FERME				{:RESULT = "FERME";:}
+;
+
+fonction_scenario ::= 
+	  OUVRIR			{:RESULT = "OUVRIR";:}
+	| OUVRIR_PARTIEL	{:RESULT = "OUVRIR_PARTIEL";:}
+	| ALLUMER			{:RESULT = "ALLUMER";:}
+	| ALLUMER_PARTIEL	{:RESULT = "ALLUMER_PARTIEL";:}
+	| ALLUMER_ECO		{:RESULT = "ALLUMER_ECO";:}
+	| ETEINDRE			{:RESULT = "ETEINDRE";:}
+	| FERMER			{:RESULT = "FERMER";:}
+	| FERMER_PARTIEL	{:RESULT = "FERMER_PARTIEL";:}
+	| TAMISER			{:RESULT = "TAMISER";:}
+;	
+// LISTE IDENT
+liste_ident ::= IDENT:id 
+{:
+	identifiants.add(id);
+:}
+VIRGULE liste_ident
+| IDENT:id{:
+	identifiants.add(id);
+:};
+//MESSAGE 
+liste_messages ::= message_scenario
+{:
+	message_sc_CM += "+";
+	message_sc_HS += "+";
+:}
+VIRGULE liste_messages | message_scenario;
+message_scenario ::= 
+	| CHAINE_CARACTERE:cc 	
+	{:
+		message_sc_HS += cc;
+		String str = "\\"+cc;
+		str = str.substring(0, str.length() - 1);
+		str += "\\\"";
+		message_sc_CM += str;
+	:}
+	| IDENT:id 				
+	{:
+		for(Map.Entry<Integer,String> entry : id_tous.entrySet()){
+			if(entry.getValue().equals(id))
+				if(entry.getKey() == 1){
+					message_sc_CM += "appareil.getNomAppareil()";
+					message_sc_HS += "appareil.getNomAppareil()";
+				}else{
+					message_sc_CM += "appareil"+entry.getKey()+".getNomAppareil()";
+					message_sc_HS += "appareil"+entry.getKey()+".getNomAppareil()";
+				}
+		}
+		
+	:}
+	| IDENT:id POINT ETAT	
+	{:
+		for(Map.Entry<Integer,String> entry : id_tous.entrySet()){
+			if(entry.getValue().equals(id))
+				if(entry.getKey() == 1){
+					message_sc_CM += "appareil.getNomAppareil()";
+					message_sc_HS += "appareil.getNomAppareil()";
+				}else{
+					message_sc_CM += "appareil"+entry.getKey()+".getNomAppareil()";
+					message_sc_HS += "appareil"+entry.getKey()+".getNomAppareil()";
+				}
+		}
+	:}
+;
+//POURTOUT ajout exectution et enlever actions
+pourtout_scenario ::= 
+{:
+	estEnsemble = false;
+:}
+	POURTOUT condition_pourtout
+{:
+	if(estEnsemble)
+		if(nb_pour == 1){
+			str_all_CMaison += "\t\t\"for(CEnsAppareil ensAppareil : this.l_ensembles){\\n\"+\n";
+			str_all_CMaison += "\t\t\"if(ensAppareil"+c_pt_CM+")\\n\"+\n";
+			str_all_HabitatSpec += "\t\t\t\tfor(CEnsAppareil ensAppareil : this.l_ensembles){\n";
+			str_all_HabitatSpec += "\t\t\t\tif(ensAppareil"+c_pt_HS+")\n";
+		}else{
+			str_all_CMaison += "\t\t\"for(CEnsAppareil ensAppareil"+nb_pour+" : this.l_ensembles){\\n\"+\n";
+			str_all_CMaison += "\t\t\"if(ensAppareil"+nb_pour+""+c_pt_CM+")\\n\"+\n";
+			str_all_HabitatSpec += "\t\t\t\tfor(CEnsAppareil ensAppareil"+nb_pour+" : this.l_ensembles){\n";
+			str_all_HabitatSpec += "\t\t\t\t\tif(ensAppareil"+nb_pour+""+c_pt_HS+")\n";
+		}
+	else	
+		if(nb_pour == 1){
+			str_all_CMaison += "\t\t\"for(CAppareil appareil : this.l_appareils){\\n\"+\n";
+			str_all_CMaison += "\t\t\"if(appareil"+c_pt_CM+")\\n\"+\n";
+			str_all_HabitatSpec += "\t\t\t\tfor(CAppareil appareil : this.l_appareils){\n";
+			str_all_HabitatSpec += "\t\t\t\tif(appareil"+c_pt_HS+")\n";
+		}else{
+			str_all_CMaison += "\t\t\t\"for(CAppareil appareil"+nb_pour+" : this.l_appareils){\\n\"+\n";
+			str_all_CMaison += "\t\t\"if(appareil"+nb_pour+""+c_pt_CM+")\\n\"+\n";
+			str_all_HabitatSpec += "\t\t\t\tfor(CAppareil appareil"+nb_pour+" : this.l_appareils){\n";
+			str_all_HabitatSpec += "\t\t\t\tif(appareil"+nb_pour+""+c_pt_HS+")\n";
+		}
+:} 
+FAIRE liste_action_pourtout FAIT POINT_VIRGULE 
+{: 
+	str_all_CMaison = str_all_CMaison.substring(0, str_all_CMaison.length() - 5);
+	str_all_HabitatSpec = str_all_HabitatSpec.substring(0, str_all_HabitatSpec.length() - 2);
+	str_all_HabitatSpec += "}\n";
+	str_all_CMaison += "}\\n\"+\n";
+	id_tous.remove(nb_pour--);
+	id_ensemble.remove(nb_ensb --);
+:}
+;
+liste_action_pourtout ::= 
+	  si_scenario liste_action_pourtout 
+	| liste_inside_action 
+	| pourtout_scenario
+;
+condition_pourtout ::= 
+	  IDENT:id DOUBLE_POINT type_appareil:type_app 															
+	{: 
+		nb_pour++;
+		id_tous.put(nb_pour,(String)id);
+	  	c_pt_CM = ".typeAppareil.equals(TypeAppareil."+type_app+")";
+		c_pt_HS = c_pt_CM;
+	:}
+	| IDENT:id DOUBLE_POINT AUTRE_APPAREIL PARENTHESE_OUVERT type_autre_appareil:autre_app PARENTHESE_FERMER 
+	{: 
+		nb_pour++;
+		id_tous.put(nb_pour,(String)id);
+		c_pt_CM = ".typeAppareil.equals(TypeAppareil."+autre_app+")";
+		c_pt_HS = c_pt_CM;
+	:}
+	| IDENT:id DOUBLE_POINT IDENT:id2																			
+	{: 
+		if(liste_ensemble.contains(id2)){
+			nb_ensb++;
+			estEnsemble = true;
+			id_ensemble.put(nb_ensb,id);
+			c_pt_CM = ".nomEnsAppareil.equals(\\\""+id2+"\\\")";
+			c_pt_HS = ".nomEnsAppareil.equals(\""+id2+"\")";
+		}else {
+			c_pt_CM = ".typeAppareil.equals(\\\""+id2+"\\\")";
+			c_pt_HS = ".typeAppareil.equals(\""+id2+"\")";
+		}
+		nb_pour++;
+		id_tous.put(nb_pour,(String)id);
+
+	:}
+	| IDENT:id DOUBLE_POINT AUTRE_APPAREIL 																	
+	{:
+		nb_pour++;
+		id_tous.put(nb_pour,(String)id);
+		c_pt_CM = ".estTypeAutreAppareil()";
+		c_pt_HS = c_pt_CM;
+	:}
+	| error {: System.out.println("Erreur syntaxique : Ne pas nommer sa variable ETAT");:}
+;
+// SI
+si_scenario ::= 
+	  SI PARENTHESE_OUVERT condition_si
+	  {:
+		if (nb_pour == 1) {
+			str_all_CMaison += "\t\t\" for(CAppareil appareil : this.l_appareils)\\n\"+\n";
+			str_all_HabitatSpec += "\t\t\t\tfor(CAppareil appareil : this.l_appareils)\n";
+		}else{
+			str_all_CMaison += "\t\t\" for(CAppareil appareil"+nb_pour+" : this.l_appareils)\\n\"+\n";
+			str_all_HabitatSpec += "\t\t\t\tfor(CAppareil appareil"+nb_pour+" : this.l_appareils)";
+		}
+		str_all_CMaison += cond_si_CM;
+		str_all_HabitatSpec += cond_si_HS;
+		
+	  :}
+	   PARENTHESE_FERMER ALORS si_interieur 
+	   {:
+			str_all_CMaison = str_all_CMaison.substring(0, str_all_CMaison.length() - 5);
+			str_all_CMaison += "}\\n\"+\n";
+			str_all_HabitatSpec = str_all_HabitatSpec.substring(0, str_all_HabitatSpec.length() - 2);
+			str_all_HabitatSpec += "}\n";
+	   :}
+	   sinon_si_scenario
+		{: 
+			id_tous.remove(nb_pour--);
+		:};
+
+sinon_si_scenario ::= FSI POINT_VIRGULE | 
+SINON 
+{:
+	str_all_CMaison += "\t\t\" else{\\n\"+\n";
+	str_all_HabitatSpec += "\t\t else{\n";
+
+:} 
+si_interieur FSI POINT_VIRGULE 
+{:
+	str_all_CMaison = str_all_CMaison.substring(0, str_all_CMaison.length() - 5);
+	str_all_CMaison += "}\\n\"+\n";
+	str_all_HabitatSpec = str_all_HabitatSpec.substring(0, str_all_HabitatSpec.length() - 2);
+	str_all_HabitatSpec += "\t}\n";
+:};
+
+si_interieur ::= 
+	   si_scenario si_interieur 
+	|  pourtout_scenario si_interieur
+	|  liste_inside_action
+	|
+	
+;
+//LISTE DES ACTIONS
+liste_inside_action ::= liste_action POINT_VIRGULE liste_inside_action | liste_action POINT_VIRGULE;
+liste_action ::= 
+	MESSAGE PARENTHESE_OUVERT liste_messages
+	{:
+		str_all_CMaison += "\t\t\"System.out.println("+message_sc_CM+"); \\n\"+\n";
+		str_all_HabitatSpec += "\t\tSystem.out.println("+message_sc_HS+"); \n";
+		message_sc_CM = "";
+		message_sc_HS = "";
+	:} 
+	PARENTHESE_FERMER
+	| IDENT:id POINT fonction_scenario:fs
+	{:
+		//part 1
+		if(!(id_tous.containsValue(id))){
+			nb_pour++;
+			str_all_CMaison += "\t\t\" for(CAppareil appareil"+nb_pour+" : this.l_appareils)\\n\"+\n";
+			str_all_CMaison += "\t\t\" if (appareil"+nb_pour+".getNomAppareil().equals(\\\""+id+"\\\"))\\n\"+\n";
+			str_all_HabitatSpec += "\t\t\t\tfor(CAppareil appareil"+nb_pour+" : this.l_appareils)\n";
+			str_all_HabitatSpec += "\t\tif (appareil"+nb_pour+".getNomAppareil().equals(\""+id+"\"))\n";
+			id_tous.put(nb_pour,id);
+		}else{
+			if(id_ensemble.containsValue(id)){
+				if(nb_ensb == 1 && nb_pour == 1){
+					str_all_CMaison += "\t\t\" for(CAppareil appareil : ensAppareil.lAppareils)\\n\"+\n";
+					str_all_HabitatSpec+=" \t\t\t\tfor(CAppareil appareil : ensAppareil.lAppareils)\n";
+				}else if(nb_ensb == 1){
+					str_all_CMaison += "\t\t\" for(CAppareil appareil"+nb_pour+" : ensAppareil.lAppareils)\\n\"+\n";
+					str_all_HabitatSpec+="\t\t\tfor(CAppareil appareil"+nb_pour+" : ensAppareil.lAppareils)\n";
+				}else if(nb_pour == 1){
+					str_all_CMaison += "\t\t\" for(CAppareil appareil : ensAppareil"+nb_ensb+".lAppareils)\\n\"+\n";
+					str_all_HabitatSpec += "\t\t\t\tfor(CAppareil appareil : ensAppareil"+nb_ensb+".lAppareils)\n";
+				}else{
+					str_all_CMaison += "\t\t\" for(CAppareil appareil"+nb_pour+" : ensAppareil"+nb_ensb+".lAppareils)\\n\"+\n";
+					str_all_HabitatSpec += "\t\t\t\tfor(CAppareil appareil"+nb_pour+" : ensAppareil"+nb_ensb+".lAppareils)\n";
+				}
+			}
+		}
+		//part 2
+		for(Map.Entry<Integer,String> entry : id_tous.entrySet()){
+			if(entry.getValue().equals(id))
+				if(entry.getKey() == 1){
+					str_all_CMaison += "\t\t\"appareil.appliquer(TypeActionAppareil."+fs+");  \\n\"+\n";
+					str_all_HabitatSpec += "\t\t\t\tappareil.appliquer(TypeActionAppareil."+fs+"); \n";
+				}else{
+					str_all_CMaison += "\t\t\"appareil"+entry.getKey()+".appliquer(TypeActionAppareil."+fs+");  \\n\"+\n";
+					str_all_HabitatSpec += "\t\t\t\tappareil"+entry.getKey()+".appliquer(TypeActionAppareil."+fs+"); \n";
+				}
+		}
+	:} 
+	| error {: System.out.println("Erreur syntaxique : Ne pas nommer sa variable ETAT");:}
+;
+
+condition_si ::= 
+	  etat_appareil:e1 EGUALITE etat_appareil:e2					
+	{:
+	  	cond_si_CM = "\t\t\"if (TypeEtatAppareil."+e1+".equals(TypeEtatAppareil."+e2+")){\\n\"+\n";
+		cond_si_HS = "\t\t\t\tif (TypeEtatAppareil."+e1+".equals(TypeEtatAppareil."+e2+")){\n";
+	:}
+	| etat_appareil:e EGUALITE IDENT:id POINT ETAT					
+	{:
+		nb_pour ++;
+		if(!(id_tous.containsValue(id))){
+			id_tous.put(nb_pour,id);
+		}
+		for(Map.Entry<Integer,String> entry : id_tous.entrySet()){
+			if(entry.getValue().equals(id)){
+				if(entry.getKey() == 1){
+					cond_si_CM = "\t\t\"if (appareil.getNomAppareil().equals(\\\""+id+"\\\"))\\n\"+\n \t\t\"if (appareil.etatAppareil.equals(TypeEtatAppareil."+e+")){\\n\"+\n";
+					cond_si_HS = "\t\t\t\tif (appareil.getNomAppareil().equals(\""+id+"\"))\n\t\tif (appareil.etatAppareil.equals(TypeEtatAppareil."+e+")){\n";	
+				}else{
+					cond_si_CM = "\t\t\"if (appareil"+entry.getKey()+".getNomAppareil().equals(\\\""+id+"\\\"))\\n\"+\n \t\t\"if (appareil"+entry.getValue()+".etatAppareil.equals(TypeEtatAppareil."+e+")){\\n\"+\n";
+					cond_si_HS = "\t\t\t\tif (appareil"+entry.getKey()+".getNomAppareil().equals(\""+id+"\"))\n\t\tif (appareil"+entry.getValue()+".etatAppareil.equals(TypeEtatAppareil."+e+")){\n";
+				}
+			}
+		}
+		
+	:}
+	| etat_appareil:e1 NON_EGUALITE etat_appareil:e2					
+	{:
+		cond_si_CM = "\t\t\"if (!(TypeEtatAppareil."+e1+".equals(TypeEtatAppareil."+e2+"))){\\n\"+\n";
+		cond_si_HS = "\t\t\t\tif (!(TypeEtatAppareil."+e1+".equals(TypeEtatAppareil."+e2+"))){\n";
+	:}
+	| etat_appareil:e NON_EGUALITE IDENT:id POINT ETAT				
+	{:
+		nb_pour ++;
+		if(!(id_tous.containsValue(id))){
+			id_tous.put(nb_pour,id);
+		}
+		for(Map.Entry<Integer,String> entry : id_tous.entrySet()){
+			if(entry.getValue().equals(id)){
+				if(entry.getKey() == 1){
+					cond_si_CM = "\t\t\"if (appareil.getNomAppareil().equals(\\\""+id+"\\\"))\\n\"+\n \t\t\"if (!(appareil.etatAppareil.equals(TypeEtatAppareil."+e+"))){\\n\"+\n";
+					cond_si_HS = "\t\t\t\tif (appareil.getNomAppareil().equals(\""+id+"\"))\n\t\tif (!(appareil.etatAppareil.equals(TypeEtatAppareil."+e+"))){\n";
+				}else{
+					cond_si_CM = "\t\t\"if (appareil"+entry.getKey()+".getNomAppareil().equals(\\\""+id+"\\\"))\\n\"+\n \t\t\"if (!(appareil"+entry.getValue()+".etatAppareil.equals(TypeEtatAppareil."+e+"))){\\n\"+\n";
+					cond_si_HS = "\t\t\t\tif (appareil"+entry.getKey()+".getNomAppareil().equals(\""+id+"\"))\n\t\tif (!(appareil"+entry.getValue()+".etatAppareil.equals(TypeEtatAppareil."+e+"))){\n";
+				}
+			}
+		}
+	:}
+	| IDENT:id1 POINT ETAT EGUALITE IDENT:id2 POINT ETAT			
+	{:
+		nb_pour ++;
+		if(!(id_tous.containsValue(id1))){
+			id_tous.put(nb_pour,id1);
+		}
+		nb_pour++; 
+		int nb_value1 = 0;
+		int nb_value2 = 0;
+		String str_cm = "";
+		String str_hs = "";
+		for(Map.Entry<Integer,String> entry : id_tous.entrySet()){
+			if(entry.getValue().equals(id1))
+				if(entry.getKey() == 1){
+					str_cm += "\t\t\"if (appareil.getNomAppareil().equals(\\\""+id1+"\\\"))\\n\"+\n";
+					str_hs += "\t\t\t\tif (appareil.getNomAppareil().equals(\""+id1+"\"))\n";
+					nb_value1 = 1;
+				}else {
+					str_cm += "\t\t\"if (appareil"+entry.getKey()+".getNomAppareil().equals(\\\""+id1+"\\\"))\\n\"+\n";
+					str_hs += "\t\t\t\tif (appareil"+entry.getKey()+".getNomAppareil().equals(\""+id1+"\"))";
+					nb_value1 = entry.getKey();
+				}
+		}
+		str_cm += "\t\t\" for(CAppareil appareil"+nb_pour+" : this.l_appareils)\\n\"+\n";
+		str_hs += "\tfor(CAppareil appareil"+nb_pour+" : this.l_appareils)\n";
+		for(Map.Entry<Integer,String> entry : id_tous.entrySet()){
+			if(entry.getValue().equals(id2))
+				if(entry.getKey() == 1){
+					str_cm += "\t\t\"if (appareil.getNomAppareil().equals(\\\""+id2+"\\\"))\\n\"+\n";
+					str_hs += "\t\t\t\tif (appareil.getNomAppareil().equals(\""+id2+"\"))\n";
+					nb_value2 = 1;
+				}else {
+					str_cm += "\t\t\"if (appareil"+entry.getKey()+".getNomAppareil().equals(\\\""+id2+"\\\"))\\n\"+\n";
+					str_hs += "\t\t\t\tif (appareil"+entry.getKey()+".getNomAppareil().equals(\""+id2+"\"))\n";
+					nb_value2 = entry.getKey();
+				}
+		}
+		str_cm += "\t\t\"if (";
+		str_hs += "\t\t\t\tif(";
+		if (nb_value1 == 1){
+			str_cm += "appareil";
+			str_hs += "appareil";
+		}
+		else {
+			str_cm += "appareil"+nb_value1;
+			str_hs += "appareil"+nb_value1;
+		}
+		str_cm += ".etatAppareil.equals(";
+		str_hs += ".etatAppareil.equals(";
+		if (nb_value2 == 1){	
+			str_cm += "appareil";
+			str_hs += "appareil";
+		}else{
+			str_cm += "appareil"+nb_value2;
+			str_hs += "appareil"+nb_value2;
+		} 
+		str_cm += ".etatAppareil)){\\n\"+\n";
+		str_hs += ".etatAppareil)){\n";
+		cond_si_CM = str_cm;
+		cond_si_HS = str_hs;
+	:}
+	| IDENT:id POINT ETAT EGUALITE etat_appareil:e					
+	{:
+		nb_pour ++;
+		if(!(id_tous.containsValue(id))){
+			id_tous.put(nb_pour,id);
+		}
+		for(Map.Entry<Integer,String> entry : id_tous.entrySet()){
+			if(entry.getValue().equals(id)){
+				if(entry.getKey() == 1){
+					cond_si_CM = "\t\t\"if (appareil.getNomAppareil().equals(\\\""+id+"\\\"))\\n\"+\n\t\t\"if (appareil.etatAppareil.equals(TypeEtatAppareil."+e+")){\\n\"+\n";
+					cond_si_HS = "\t\t\t\tif (appareil.getNomAppareil().equals(\""+id+"\"))\n\t\tif (appareil.etatAppareil.equals(TypeEtatAppareil."+e+")){\n";
+				}else{
+					cond_si_CM = "\t\t\"if (appareil"+entry.getKey()+".getNomAppareil().equals(\\\""+id+"\\\"))\\n\"+\n \t\t\"if (appareil"+entry.getValue()+".etatAppareil.equals(TypeEtatAppareil."+e+")){\\n\"+\n";
+					cond_si_HS = "\t\t\t\tif (appareil"+entry.getKey()+".getNomAppareil().equals(\""+id+"\"))\n\t\tif (appareil"+entry.getValue()+".etatAppareil.equals(TypeEtatAppareil."+e+")){\n";
+				}
+			}
+		}
+	:}
+	| IDENT:id1 POINT ETAT NON_EGUALITE IDENT:id2 POINT ETAT		
+	{:
+		nb_pour ++;
+		if(!(id_tous.containsValue(id1))){
+			id_tous.put(nb_pour,id1);
+		}
+		nb_pour++; 
+		int nb_value1 = 0;
+		int nb_value2 = 0;
+		String str_cm = "";
+		String str_hs = "";
+		for(Map.Entry<Integer,String> entry : id_tous.entrySet()){
+			if(entry.getValue().equals(id1))
+				if(entry.getKey() == 1){
+					str_cm += "\t\t\"if (appareil.getNomAppareil().equals(\\\""+id1+"\\\"))\\n\"+\n";
+					str_hs += "\t\t\t\tif (appareil.getNomAppareil().equals(\""+id1+"\"))\n";
+					nb_value1 = 1;
+				}else {
+					str_cm += "\t\t\"if (appareil"+entry.getKey()+".getNomAppareil().equals(\\\""+id1+"\\\"))\\n\"+\n";
+					str_hs += "\t\t\t\tif (appareil"+entry.getKey()+".getNomAppareil().equals(\""+id1+"\"))\n";
+					nb_value1 = entry.getKey();
+				}
+		}
+		str_cm += "\t\t\" for(CAppareil appareil"+nb_pour+" : this.l_appareils)\\n\"+\n";
+		str_hs += "\t\t\t\tfor(CAppareil appareil"+nb_pour+" : this.l_appareils)\n";
+		for(Map.Entry<Integer,String> entry : id_tous.entrySet()){
+			if(entry.getValue().equals(id2))
+				if(entry.getKey() == 1){
+					str_cm += "\t\t\"if (appareil.getNomAppareil().equals(\\\""+id2+"\\\"))\\n\"+\n";
+					str_hs += "\t\t\t\tif (appareil.getNomAppareil().equals(\""+id2+"\"))\n";
+					nb_value2 = 1;
+				}else {
+					str_cm += "\t\t\"if (appareil"+entry.getKey()+".getNomAppareil().equals(\\\""+id2+"\\\"))\\n\"+\n";
+					str_hs += "\t\t\t\tif (appareil"+entry.getKey()+".getNomAppareil().equals(\""+id2+"\"))\n";
+					nb_value2 = entry.getKey();
+				}
+		}
+		str_cm += "\t\t\"if (!(";
+		str_hs += "\t\t\t\tif (!(";
+		if (nb_value1 == 1){
+			str_cm += "appareil";
+			str_hs += "appareil";
+		}
+		else {
+			str_cm += "appareil"+nb_value1;
+			str_hs += "appareil"+nb_value1;
+		}
+		str_cm += ".etatAppareil.equals(";
+		str_hs += ".etatAppareil.equals(";
+		if (nb_value2 == 1){ 
+			str_cm += "appareil";
+			str_hs += "appareil";
+		}
+		else {
+			str_cm += "appareil"+nb_value2;
+			str_hs += "appareil"+nb_value2;
+		}
+		str_cm += ".etatAppareil))){\\n\"+\n";
+		str_hs += ".etatAppareil))){\n";
+		cond_si_CM = str_cm;
+		cond_si_HS = str_hs;
+	:}
+	| IDENT:id POINT ETAT NON_EGUALITE etat_appareil:e				
+	{:
+		nb_pour ++;
+		if(!(id_tous.containsValue(id))){
+			id_tous.put(nb_pour,id);
+		}
+		for(Map.Entry<Integer,String> entry : id_tous.entrySet()){
+			if(entry.getValue().equals(id)){
+				if(entry.getKey() == 1){
+					cond_si_CM = "\t\t\"if (appareil.getNomAppareil().equals(\\\""+id+"\\\"))\\n\"+\n\t\t\"if (!(appareil.etatAppareil.equals(TypeEtatAppareil."+e+"))){\\n\"+\n";
+					cond_si_HS = "\t\t\t\tif (appareil.getNomAppareil().equals(\""+id+"\"))\n\t\tif (!(appareil.etatAppareil.equals(TypeEtatAppareil."+e+"))){\n";
+				}else{
+					cond_si_CM = "\t\t\"if (appareil"+entry.getKey()+".getNomAppareil().equals(\\\""+id+"\\\"))\\n\"+\n\t\t\"if (!(appareil"+entry.getValue()+".etatAppareil.equals(TypeEtatAppareil."+e+"))){\\n\"+\n";
+					cond_si_HS = "\t\t\t\tif (appareil"+entry.getKey()+".getNomAppareil().equals(\""+id+"\"))\n\t\tif (!(appareil"+entry.getValue()+".etatAppareil.equals(TypeEtatAppareil."+e+"))){\n";
+				}
+			}
+		}
+	:}
+;
+//EXECUTER SCENARIO
+executer_scenario_sc ::= EXECUTER_SCENARIO IDENT:id {:RESULT = id;:};
