@@ -9,7 +9,7 @@
 
 ### Description
 > A university project(bachelor). 
-The goal was to generate two java classes (**CMaisonUser.java** and **HabitatSpecific.java**) from a text file that describe a exemple of utilisation of an house with home-automation devices and scenarios of their utilisation. To do that a grammar have been made (**grammaire.md** in folder **doc**) and an explanation of that grammar was made (**Explication_grammaire.md** in folder **doc**). Both files are in french.
+The goal was to generate two java classes (**CMaisonUser.java** and **HabitatSpecific.java**) from a home made language (Domus) that describe a exemple of utilisation of an house with home-automation devices and scenarios of their utilisation. To do that a grammar have been made (**grammaire.md** in folder **doc**) and an explanation of that grammar was made (**Explication_grammaire.md** in folder **doc**). Both files are in french.
 
 >It also produce a resume (the file **resume.txt**) which tell the numbers of devices, interfaces and scenarios declared. It also tell which scenario has been declared and which interface is associated to which scenario.
 This project has been done 
